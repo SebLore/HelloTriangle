@@ -101,9 +101,9 @@ namespace dxh
 	public:
 		std::string name;
 		std::vector<dxh::Vertex> vertices;
-		std::vector<size_t> indices;
+		std::vector<UINT> indices;
 		Mesh() { name = "unnamed"; }
-		Mesh(std::vector<dxh::Vertex> _vtxs, std::vector<size_t> _indices, std::string _name = "unnamed")
+		Mesh(std::vector<dxh::Vertex> _vtxs, std::vector<UINT> _indices, std::string _name = "unnamed")
 			: vertices(_vtxs), indices(_indices), name(_name) {}
 
 		Mesh(const Mesh& copy) :name(copy.name), vertices(copy.vertices), indices(copy.indices) { }

@@ -246,12 +246,12 @@ bool DXHandler::CreatePixelShader(ID3D11PixelShader*& pshader, std::string filep
 
 bool DXHandler::CreateShaders(ID3D11VertexShader*& vertexshader, ID3D11PixelShader*& pixelshader, ID3D11InputLayout*& inputLayout)
 {
-	if (!CreateVertexShader(vertexshader, inputLayout, "../Debug/VertexShader.cso"))
+	if (!CreateVertexShader(vertexshader, inputLayout, "hlsl/VertexShader.cso"))
 	{
 		util::ErrorMessageBox("Failed to create vertex shader. ");
 		return false;
 	}
-	if (!CreatePixelShader(pixelshader, "../Debug/PixelShader.cso"))
+	if (!CreatePixelShader(pixelshader, "hlsl/PixelShader.cso"))
 	{
 		util::ErrorMessageBox("Failed to create pixel shader. ");
 		return false;
@@ -478,7 +478,7 @@ void DXHandler::GenerateMesh(dxh::Mesh& mesh) {
 		{1, 1}, // bottom right uv
 	};
 
-	size_t indices[]
+	UINT indices[]
 	{
 		0, 1, 2, //first triangle
 		0, 2, 3  //second triangle
