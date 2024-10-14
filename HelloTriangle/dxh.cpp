@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "dxh.h"
 
+
 //implementing stb_image.h
 #include "ImageLoader.h"
 
@@ -387,7 +388,7 @@ bool DXHandler::LoadImageToTexture(dxh::ImageData& target, const std::string fil
 bool DXHandler::CreateTexture(ID3D11ShaderResourceView*& shaderresourceview)
 {
 	dxh::ImageData idTex;
-	if (!LoadImageToTexture(idTex, "sampletexture.png"))
+	if (!LoadImageToTexture(idTex, "resources/sampletexture.png"))
 	{
 		util::ErrorMessageBox("Failed to load image data.");
 		return false;
@@ -532,7 +533,7 @@ bool DXHandler::CreateIndexBuffer(ID3D11Buffer*& bIndex, const dxh::Mesh& mesh)
 	D3D11_BUFFER_DESC ibd{};
 	ZeroMemory(&ibd, sizeof(ibd));
 	ibd.Usage = D3D11_USAGE_IMMUTABLE;
-	ibd.ByteWidth = sizeof(UINT) * mesh.indices.size();
+	ibd.ByteWidth = static_cast<UINT>(mesh.indices.size())*sizeof(UINT);
 	ibd.BindFlags = D3D11_BIND_INDEX_BUFFER;
 	ibd.CPUAccessFlags = 0;
 	ibd.MiscFlags = 0;
@@ -544,8 +545,6 @@ bool DXHandler::CreateIndexBuffer(ID3D11Buffer*& bIndex, const dxh::Mesh& mesh)
 
 	return SUCCEEDED(hr);
 }
-
-
 
 void DXHandler::SetupBufferObjects(RECT& rc)
 {
@@ -684,7 +683,7 @@ void DXHandler::Render(float dt)
 	MapBuffer(bMaterial, &material, sizeof(material));
 
 	//Draw vertices
-	devicecontext->DrawIndexed(mesh.indices.size(), 0, 0);
+	devicecontext->DrawIndexed(static_cast<UINT>(mesh.indices.size()), 0, 0);
 
 	swapchain->Present(0, 0);
 }

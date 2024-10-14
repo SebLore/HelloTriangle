@@ -3,7 +3,7 @@
 
 //Wrapper Class for stb_image.h
 #define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
+#include "external/stb_image.h"
 
 class
 	ImageLoadRaw

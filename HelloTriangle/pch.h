@@ -1,3 +1,5 @@
+//Precompiled header
+
 #pragma once
 //external libraries
 #include <Windows.h>
