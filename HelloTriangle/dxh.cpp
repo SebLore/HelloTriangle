@@ -58,13 +58,13 @@ bool DXHandler::SetUpInterface(HWND handle, RECT& rc)
 	}
 	if (!CreateBackbufferRenderTargetView(swapchain, bbRenderTargetView))
 	{
-		util::ErrorMessageBox("Failed to create Rendertarget View.");
+		util::ErrorMessageBox("Failed to create RenderTargetView.");
 		return false;
 	}
 
 	if (!CreateRasterizerState(rasterizerState))
 	{
-		util::ErrorMessageBox("Failed to create rasterizer state.");
+		util::ErrorMessageBox("Failed to create Rasterizer State.");
 		return false;
 	}
 
@@ -110,7 +110,7 @@ bool DXHandler::SetUpPipeline(RECT& rc)
 // INTERNAL/HELPER FUNCTIONS
 // **********************************************************************************************************
 
-std::string DXHandler::ReadShaderData(std::string filepath) {
+std::string DXHandler::ReadShaderData(const std::string &filepath) {
 
 	std::string data;
 	std::ifstream fstr(filepath, std::ios::binary | std::ios::ate);
@@ -388,7 +388,7 @@ bool DXHandler::LoadImageToTexture(dxh::ImageData& target, const std::string fil
 bool DXHandler::CreateTexture(ID3D11ShaderResourceView*& shaderresourceview)
 {
 	dxh::ImageData idTex;
-	if (!LoadImageToTexture(idTex, "resources/sampletexture.png"))
+	if (!LoadImageToTexture(idTex, "resources/" + texture))
 	{
 		util::ErrorMessageBox("Failed to load image data.");
 		return false;
@@ -618,12 +618,11 @@ void DXHandler::GenerateTexture(dxh::ImageData& id)
 void DXHandler::Rotate(float dt) //Rotates world matrix at a rate of 2pi(rad)/rot_time(sec)
 {
 	// one whole lap in radians, time in seconds for a full rotation
-	const float angle = RAD;
-	// approximately one rotation every 8 seconds
-	const float rot_time = 8.0;
-	dx::XMMATRIX rotation	= dx::XMMatrixTranspose(dx::XMMatrixRotationY(angle * (dt / rot_time)));
+	float rot_time_div = 1.f / rotation_time; //division is expensive so we do this once. separate variables
+	
+	dx::XMMATRIX rotation	= dx::XMMatrixTranspose(dx::XMMatrixRotationY(dt * (rotation_angle * rot_time_div))); 
 	dx::XMMATRIX translate	= dx::XMMatrixTranspose(dx::XMMatrixTranslation(0, 0, -0.5f));
-	dx::XMMATRIX inverse	= dx::XMMatrixTranspose(dx::XMMatrixTranslation(0, 0, 0.5f));
+	dx::XMMATRIX inverse	= dx::XMMatrixTranspose(dx::XMMatrixTranslation(0, 0, 0.5f)); //needed to not have fucky normals
 	dx::XMMATRIX world = dx::XMLoadFloat4x4(&wvp.world);
 
 	world = world * (inverse * rotation * translate); //right to left
@@ -631,7 +630,7 @@ void DXHandler::Rotate(float dt) //Rotates world matrix at a rate of 2pi(rad)/ro
 	dx::XMStoreFloat4x4(&wvp.world, world);
 }
 
-void DXHandler::SetAll()
+void DXHandler::SetAll() // set every frame
 {
 	const UINT32 pStride = sizeof(dxh::Vertex);
 	const UINT32 offset = 0;
@@ -684,6 +683,10 @@ void DXHandler::Render(float dt)
 
 	//Draw vertices
 	devicecontext->DrawIndexed(static_cast<UINT>(mesh.indices.size()), 0, 0);
+
+	/*
+	
+	*/
 
 	swapchain->Present(0, 0);
 }
