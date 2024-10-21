@@ -20,10 +20,12 @@ public:
 	~DXHandler();
 
 	void Initialize(HWND handle);
-	void Render(float dt = 0.0f);
+	void Render();
+	void Update(float deltatime);
 	void SetViewport(FLOAT width, FLOAT height, FLOAT topleftx, FLOAT toplefty, FLOAT maxdepth, FLOAT mindepth);
 	void SetTopology(D3D11_PRIMITIVE_TOPOLOGY topology)const;
 	bool AddTexture(const std::string& filepath);
+	HRESULT Present()const;
 private:
 	// Initial state Setup
 	bool SetupDirectX(HWND handle, RECT& rc);
@@ -64,7 +66,6 @@ private:
 	void SetTransformationUpdateFlag(bool val = true);
 	// Per frame
 	void Rotate(float dt); //rotates dt * rotation_time * rotation around the origin.
-	void Update(float deltatime);
 	
 	// State management
 	void SetAllStates();

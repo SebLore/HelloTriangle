@@ -28,30 +28,31 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
     util::DeltaTimer deltaTime;
     ShowWindow(handle, nCmdShow);
 
-    // ==============================================
-    // INSERT IMGUI STUFF HERE
 
-
-    // ==============================================
-    
+    bool running = true;
     // Main render loop
-    MSG msg{};
-    while (WM_QUIT != msg.message)
+    while (running)
     {
-        if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
+        MSG msg{};
+        while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
         {
             TranslateMessage(&msg);
             DispatchMessage(&msg);
+            if (msg.message == WM_QUIT)
+                running = false;
         }
-        else 
-        {
-            // rendering operations happen here
-            dxh.Render(deltaTime.Delta());
-            // ======================================
-            // INSERT IMGUI RENDER CALLS HERE
-            // ======================================
-        }
+        if (!running)
+            break;
+
+        // any changes to the handler or mesh are applied here
+        dxh.Update(deltaTime.Delta());
+        
+        // Render the scene
+        dxh.Render();
+
+        // Finally present the rendered scene
+        dxh.Present();
     }
  
-    return static_cast<int>(msg.wParam);
+    return EXIT_SUCCESS;
 }

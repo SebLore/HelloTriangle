@@ -575,6 +575,22 @@ void DXHandler::Update(float deltatime)
 	}
 
 	UpdateWorldMatrix();
+
+	//Set all the states if something was changed
+	if (m_state_needs_update)
+		SetAllStates();
+
+	// remap buffer object if one has been changed
+	if (m_buffer_objects_need_update)
+	{
+		MapBuffer(bVertex, m_mesh.vertices.data(), m_mesh.ByteWidth());
+		MapBuffer(bLight, &m_light, sizeof(m_light));
+		MapBuffer(bMaterial, &m_material, sizeof(m_material));
+		SetBufferUpdateFlag(false);
+	}
+
+	// buffer expected to change every frame, no need for if statement
+	MapBuffer(bMatrix, &m_wvp, sizeof(m_wvp));
 }
 
 void DXHandler::SetBufferUpdateFlag(bool val)
@@ -834,34 +850,18 @@ void DXHandler::MapBuffer(ID3D11Buffer*& gBuffer, const void* src, size_t size)
 }
 
 //main render loop
-void DXHandler::Render(float dt)
+void DXHandler::Render()
 {
 	context->ClearRenderTargetView(bbRenderTargetView, m_clearColor);
 	context->ClearDepthStencilView(depthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
-
-	// Update buffers 
-	Update(dt);
-	
-	
-	//Set all the states if something was changed
-	if(m_state_needs_update)
-		SetAllStates();
-	
-	// remap buffer object if one has been changed
-	if (m_buffer_objects_need_update)
-	{
-		MapBuffer(bVertex, m_mesh.vertices.data(), m_mesh.ByteWidth());
-		MapBuffer(bLight, &m_light, sizeof(m_light));
-		MapBuffer(bMaterial, &m_material, sizeof(m_material));
-		SetBufferUpdateFlag(false); 
-	}
-
-	// buffer expected to change every frame, no need for if statement
-	MapBuffer(bMatrix, &m_wvp, sizeof(m_wvp));
 
 
 	// Make draw call, once per vertex
 	context->DrawIndexed(static_cast<UINT>(m_mesh.indices.size()), 0, 0);
 
-	swapchain->Present(1, 0);
+}
+
+HRESULT DXHandler::Present()const
+{
+	return swapchain->Present(1, 0);
 }
