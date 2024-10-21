@@ -1,17 +1,18 @@
+//Wrapper Class for stb_image.h
+
 #pragma once
 #include "pch.h"
 
-//Wrapper Class for stb_image.h
+
 #define STB_IMAGE_IMPLEMENTATION
 #include "external/stb_image.h"
 
-class
-	ImageLoadRaw
+class ImageLoadRaw 
 {
 public:
-	ImageLoadRaw() {};
+	ImageLoadRaw()=default;
 	ImageLoadRaw(dxh::ImageData& target, const char* filepath);
-	~ImageLoadRaw() {};
+	~ImageLoadRaw()=default;
 	bool ImageFromFile(dxh::ImageData& target, const char* filepath);
 
 };

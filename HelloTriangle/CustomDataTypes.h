@@ -131,6 +131,14 @@ namespace dxh
 		DirectX::XMFLOAT4X4 project;
 	};
 
+	struct ModelData
+	{
+		float3 translation = {0.0f, 0.0f, 0.0f}; // x, y, z
+		float angle = 0.0f; // radians
+		float scale = 1.0f; // 100% size
+		bool wasUpdated = false;
+	};
+
 	_declspec(align(16))
 		struct SimpleLight
 	{

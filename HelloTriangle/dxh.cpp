@@ -2,24 +2,17 @@
 #include "dxh.h"
 
 
+
+// preprocessor directives for directories
+#define RESOURCE_DIR "resources/"
+#define SHADER_DIR "hlsl/"
+
 //implementing stb_image.h
 #include "ImageLoader.h"
 
 DXHandler::DXHandler(HWND handle)
 {
-	RECT rc;
-	GetClientRect(handle, &rc);
-	if (!SetUpInterface(handle, rc))
-	{
-		util::ErrorMessageBox("Failed to set up interface.");
-		throw;
-	}
-
-	if (!SetUpPipeline(rc))
-	{
-		util::ErrorMessageBox("Failed to set up pipeline.");
-		throw;
-	}
+	Initialize(handle);
 }
 
 
@@ -27,7 +20,7 @@ DXHandler::~DXHandler()
 {
 	// Interface
 	if (device)	device->Release();
-	if (devicecontext) devicecontext->Release();
+	if (context) context->Release();
 	if (swapchain) swapchain->Release();
 	if (rasterizerState) rasterizerState->Release();
 	if (bbRenderTargetView) bbRenderTargetView->Release();
@@ -45,13 +38,42 @@ DXHandler::~DXHandler()
 	if (bLight) bLight->Release();
 	if (bIndex) bIndex->Release();
 	//Texture
-	if (textureView) textureView->Release();
+	for (size_t i = 0; i < 10; i++)
+	{
+		if (textureViews[i]) 
+			textureViews[i]->Release();
+	}
 	if (samplerState) samplerState->Release();
 }
 
-bool DXHandler::SetUpInterface(HWND handle, RECT& rc)
+void DXHandler::Initialize(HWND handle)
 {
-	if (!CreateDeviceAndSwapChain(handle, swapchain, device, devicecontext))
+	RECT rc;
+	GetClientRect(handle, &rc);
+	if (!SetupDirectX(handle, rc))
+	{
+		util::ErrorMessageBox("Failed to set up interface.");
+		throw;
+	}
+
+	if (!SetupPipeline())
+	{
+		util::ErrorMessageBox("Failed to set up pipeline.");
+		throw;
+	}
+
+	if (!SetupInitialState(rc))
+	{
+		util::ErrorMessageBox("Failed to set initial state");
+		throw;
+	}
+
+}
+
+
+bool DXHandler::SetupDirectX(HWND handle, RECT& rc)
+{
+	if (!CreateDeviceAndSwapChain(handle, swapchain, device, context))
 	{
 		util::ErrorMessageBox("Failed to create device and swapchain.");
 		return false;
@@ -79,33 +101,47 @@ bool DXHandler::SetUpInterface(HWND handle, RECT& rc)
 	return true;
 }
 
-bool DXHandler::SetUpPipeline(RECT& rc)
+bool DXHandler::SetupPipeline()
 {
 	//Get window client area for later
 
-	if (!CreateShaders(vertexShader, pixelShader, inputLayout)) return false;
+	if (!CreateShaders(vertexShader, pixelShader, inputLayout))
+		return false;
 
-	//CPU side objects
-	GenerateMesh(mesh);
-	SetupBufferObjects(rc);
+	SetTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	return true;
+}
 
-	if (!CreateBuffers()) return false;
-	if (!CreateTexture(textureView))
+bool DXHandler::SetupInitialState(RECT& rc) 
+{
+	// Mesh data
+	GenerateMesh(m_mesh);
+	// Set initial buffer data values
+	SetTranslation({ 0.0f, 0.0f, -0.5f });
+	SetScale(1.0f);
+	SetRotationAngle(2 * PI);
+	
+	SetupBufferData(rc);
+
+	if (!CreateBuffers())
+		return false;
+
+	if (!AddTexture(m_active_texture))
 	{
 		// create texture makes its own error message box if the texture fails to be created
 		// or if the image file isn't loaded
 		util::ErrorMessageBox("Failed to create shader resource view of texture!");
 		return false;
 	}
+
 	if (!CreateSamplerState(samplerState))
 	{
 		util::ErrorMessageBox("Failed to create sampler state!");
 		return false;
 	}
-	SetTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
 	return true;
 }
-
 // **********************************************************************************************************
 // INTERNAL/HELPER FUNCTIONS
 // **********************************************************************************************************
@@ -129,9 +165,9 @@ std::string DXHandler::ReadShaderData(const std::string &filepath) {
 	return data;
 }
 
-void DXHandler::SetTopology(D3D11_PRIMITIVE_TOPOLOGY topology)
+void DXHandler::SetTopology(D3D11_PRIMITIVE_TOPOLOGY topology)const
 {
-	devicecontext->IASetPrimitiveTopology(topology);
+	context->IASetPrimitiveTopology(topology);
 }
 // **********************************************************************************************************
 // DEVICE / INTERFACE
@@ -213,7 +249,7 @@ void DXHandler::SetViewport(FLOAT width, FLOAT height, FLOAT topleftx, FLOAT top
 	vp.TopLeftY = toplefty;
 	vp.MaxDepth = maxdepth;
 	vp.MinDepth = mindepth;
-	devicecontext->RSSetViewports(1, &vp);
+	context->RSSetViewports(1, &vp);
 }
 
 
@@ -247,6 +283,7 @@ bool DXHandler::CreatePixelShader(ID3D11PixelShader*& pshader, std::string filep
 
 bool DXHandler::CreateShaders(ID3D11VertexShader*& vertexshader, ID3D11PixelShader*& pixelshader, ID3D11InputLayout*& inputLayout)
 {
+
 	if (!CreateVertexShader(vertexshader, inputLayout, "hlsl/VertexShader.cso"))
 	{
 		util::ErrorMessageBox("Failed to create vertex shader. ");
@@ -262,12 +299,13 @@ bool DXHandler::CreateShaders(ID3D11VertexShader*& vertexshader, ID3D11PixelShad
 
 bool DXHandler::CreateBuffers()
 {
-	if (!CreateVertexBuffer(bVertex, mesh))
+	if (!CreateVertexBuffer(bVertex, m_mesh))
 	{
 		util::ErrorMessageBox("Failed to set up Vertex Buffer");
 		return false;
 	}
-	if (!CreateIndexBuffer(bIndex, mesh))
+
+	if (!CreateIndexBuffer(bIndex, m_mesh))
 	{
 		util::ErrorMessageBox("Failed to set up Index Buffer");
 		return false;
@@ -378,22 +416,51 @@ bool DXHandler::CreateDepthStencil(UINT width, UINT height, ID3D11DepthStencilVi
 // TEXTURE
 // **********************************************************************************************************
 
+void DXHandler::UpdateWorldMatrix()
+{
+	if (!mm.wasUpdated)
+		return;
+
+	float rot_time_div = 1.f / m_rotation_time; //division is expensive so we do this once. separate variables
+
+	dx::XMMATRIX rotation = Transpose(dx::XMMatrixRotationY(mm.angle));
+	dx::XMMATRIX translation = dx::XMMatrixTranspose(dx::XMMatrixTranslation(mm.translation.x, mm.translation.y, mm.translation.z));
+	dx::XMMATRIX inverse_translation = dx::XMMatrixInverse(nullptr, translation);
+	float scale = mm.scale;
+
+	dx::XMMATRIX transformation;
+	m_is_rotating 
+		? transformation = inverse_translation * rotation * translation * scale 
+		: transformation = translation * scale;
+	
+	
+	dx::XMMATRIX world = dx::XMLoadFloat4x4(&m_wvp.world);
+	world = world * transformation;
+
+	dx::XMStoreFloat4x4(&m_wvp.world, world);
+	mm.wasUpdated = false;
+}
+
+void DXHandler::SetRotationAngle(float angle)
+{
+	m_rotation_angle = angle;
+}
+
 //Loads an image from a file using the stb_image library and converts it to a usable texture
-bool DXHandler::LoadImageToTexture(dxh::ImageData& target, const std::string filepath)
+bool DXHandler::LoadImageToTexture(dxh::ImageData& target, const std::string &filepath)
 {
 	static ImageLoadRaw il;
 	return	il.ImageFromFile(target, filepath.c_str());
 }
 
-bool DXHandler::CreateTexture(ID3D11ShaderResourceView*& shaderresourceview)
+bool DXHandler::CreateTextureSRV(ID3D11ShaderResourceView*& shaderresourceview, const std::string &filepath)
 {
 	dxh::ImageData idTex;
-	if (!LoadImageToTexture(idTex, "resources/" + texture))
+	if (!LoadImageToTexture(idTex, RESOURCE_DIR + filepath))
 	{
 		util::ErrorMessageBox("Failed to load image data.");
 		return false;
 	}
-
 
 	D3D11_TEXTURE2D_DESC texDesc{ 0 };
 	ZeroMemory(&texDesc, sizeof(texDesc));
@@ -430,10 +497,99 @@ bool DXHandler::CreateTexture(ID3D11ShaderResourceView*& shaderresourceview)
 	resViewDesc.Texture2D.MostDetailedMip = 0;
 
 	hr = device->CreateShaderResourceView(texTemp, &resViewDesc, &shaderresourceview);
-
-	texTemp->Release();
+	texTemp->Release(); // release first
 
 	return SUCCEEDED(hr);
+}
+
+bool DXHandler::AddTexture(const std::string& filepath)
+{
+	if (m_texture_index_map.size() > MAX_NR_OF_TEXTURES)
+	{
+		util::ErrorMessageBox("Cannot add texture \"" + filepath + "\" because maximum number of textures reached. \n Remove a texture and try again.");
+		return false;
+	}
+	if (m_texture_index_map.count(filepath) == 0)
+	{
+		m_texture_index_map[filepath] = m_texture_index_map.size();
+		if (!CreateTextureSRV(textureViews[m_texture_index_map.at(filepath)], filepath))
+		{
+			util::ErrorMessageBox("Failed to create texture for \"" + filepath + "\"");
+			m_texture_index_map.erase(filepath);
+			return false;
+		}
+	}
+	
+	return true; // return true if the texture exists in the map; doesn't matter if it was added now
+}
+
+// changes the texture of the quad
+void DXHandler::ChangeTexture(const std::string& filepath)
+{
+	// attempts to add the texture if it doesn't exist
+	AddTexture(filepath); //
+
+	auto it = m_texture_index_map.find(filepath);
+	if (it == m_texture_index_map.end())
+	{
+		util::ErrorMessageBox("failed to add texture " + filepath);
+		return;
+	}
+	m_active_texture = filepath;
+	SetStateUpdateFlag();
+}
+
+void DXHandler::Update(float deltatime)
+{
+	static float accumulated_time = 0;
+	static bool tex_changed = false;
+	
+	accumulated_time += deltatime;
+	// change texture when half the rotation has finished. By default the quad is facing away then.
+	if (accumulated_time >= m_rotation_time*0.5 && tex_changed == false)
+	{
+		for (const auto& it : m_texture_index_map)
+		{
+			if (it.first != m_active_texture)
+			{
+				m_active_texture = it.first;
+				break;
+			}
+		}
+		ChangeTexture(m_active_texture);
+		tex_changed = true;
+	}
+
+	// Flip the rotation direction after a set amount of time.
+	if (accumulated_time >= m_rotation_time && m_is_rotating)
+	{
+		FlipRotateDirection();
+		accumulated_time = 0;
+		tex_changed = false;
+	}
+
+	if (m_is_rotating)
+	{
+		float rot_time_div = 1.f / m_rotation_time; //division is expensive so we do this once. separate variables
+		RotateY(deltatime * rot_time_div * m_rotation_angle);
+	}
+
+	UpdateWorldMatrix();
+}
+
+void DXHandler::SetBufferUpdateFlag(bool val)
+{
+	m_buffer_objects_need_update = val;
+}
+
+void DXHandler::SetTransformationUpdateFlag(bool val)
+{
+	mm.wasUpdated = val;
+}
+
+void DXHandler::SetStateUpdateFlag(bool val)
+{
+	m_state_needs_update = val;
 }
 
 bool DXHandler::CreateSamplerState(ID3D11SamplerState*& samplerstate)
@@ -468,7 +624,10 @@ void DXHandler::GenerateMesh(dxh::Mesh& mesh) {
 		{  0.5f, -0.5f, 0.0f}, // bottom right			
 	};
 
-	dxh::float3 normal = dxh::cross(positions[0] - positions[1], positions[0] - positions[2]);
+	dxh::float3 normal = 
+		dxh::cross(
+					positions[0] - positions[1], 
+					positions[0] - positions[2]); //cross product should be z = -1
 
 
 	dxh::float2 uv[]
@@ -489,11 +648,11 @@ void DXHandler::GenerateMesh(dxh::Mesh& mesh) {
 	//Push into 
 	for (int i = 0; i < 4; i++)
 	{
-		mesh.vertices.push_back(dxh::Vertex(positions[i], normal, uv[i]));
+		mesh.vertices.emplace_back(dxh::Vertex(positions[i], normal, uv[i]));
 	}
 	for (int i = 0; i < 6; i++)
 	{
-		mesh.indices.push_back(indices[i]);
+		mesh.indices.emplace_back(indices[i]);
 	}
 }
 
@@ -518,7 +677,7 @@ bool DXHandler::CreateVertexBuffer(ID3D11Buffer*& vbuffer, const dxh::Mesh& mesh
 	ZeroMemory(&buffdesc, sizeof(buffdesc));
 	buffdesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 	buffdesc.Usage = D3D11_USAGE_DYNAMIC;
-	buffdesc.ByteWidth = mesh.ByteWidth();
+	buffdesc.ByteWidth = static_cast<UINT>(mesh.ByteWidth());
 	buffdesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 
 	D3D11_SUBRESOURCE_DATA blob{};
@@ -526,6 +685,24 @@ bool DXHandler::CreateVertexBuffer(ID3D11Buffer*& vbuffer, const dxh::Mesh& mesh
 
 	HRESULT hr = device->CreateBuffer(&buffdesc, &blob, &vbuffer);
 	return SUCCEEDED(hr);
+}
+
+void DXHandler::SetTranslation(dxh::float3 translation)
+{	
+	mm.translation = translation;
+	SetTransformationUpdateFlag();
+}
+
+void DXHandler::SetScale(float scale)
+{
+	mm.scale = scale;
+	SetTransformationUpdateFlag();
+}
+
+void DXHandler::RotateY(float angle)
+{
+	mm.angle = angle;
+	SetTransformationUpdateFlag();
 }
 
 bool DXHandler::CreateIndexBuffer(ID3D11Buffer*& bIndex, const dxh::Mesh& mesh)
@@ -546,16 +723,16 @@ bool DXHandler::CreateIndexBuffer(ID3D11Buffer*& bIndex, const dxh::Mesh& mesh)
 	return SUCCEEDED(hr);
 }
 
-void DXHandler::SetupBufferObjects(RECT& rc)
+void DXHandler::SetupBufferData(RECT& rc)
 {
 	// CAMERA
 	dxh::float3 viewpos = { 0.0f, 0.0, -1.0f };
 
 	// world
-	dx::XMStoreFloat4x4(&wvp.world, dx::XMMatrixIdentity());
+	dx::XMStoreFloat4x4(&m_wvp.world, dx::XMMatrixIdentity());
 
 	// view
-	dx::XMStoreFloat4x4(&wvp.view, dx::XMMatrixTranspose(
+	dx::XMStoreFloat4x4(&m_wvp.view, dx::XMMatrixTranspose(
 		dx::XMMatrixLookAtLH(
 			{ viewpos.x, viewpos.y, viewpos.z, 1.0f },
 			{ 0.0f, 0.0f, 0.0f, 1.0f },
@@ -564,9 +741,9 @@ void DXHandler::SetupBufferObjects(RECT& rc)
 	)
 	);
 	// projection
-	dx::XMStoreFloat4x4(&wvp.project, dx::XMMatrixTranspose(
+	dx::XMStoreFloat4x4(&m_wvp.project, dx::XMMatrixTranspose(
 			dx::XMMatrixPerspectiveFovLH(
-				PI * 0.5, //90
+				PI * 0.5f, //90
 				static_cast<FLOAT>((rc.right - rc.left) / (rc.bottom - rc.top)),
 				0.1f,
 				20.0f
@@ -575,15 +752,15 @@ void DXHandler::SetupBufferObjects(RECT& rc)
 	);
 
 	// LIGHTS
-	light.pos = dxh::Float4(-0.5f, 0.5f, -2.0f, 1.0f); //up, to the left and back
-	light.color = dxh::Float4(1.0f, 1.0f, 1.0f, 1.0f);
-	light.viewpos = viewpos;
+	m_light.pos = dxh::Float4(-0.5f, 0.5f, -2.0f, 1.0f); //up, to the left and back
+	m_light.color = dxh::Float4(1.0f, 1.0f, 1.0f, 1.0f);
+	m_light.viewpos = viewpos;
 
 	// MATERIAL
-	material.ambi_col = dxh::float4(0.2f, 0.2f, 0.2f, 0.0f);
-	material.diff_col = dxh::float4(0.6f, 0.6f, 0.6f, 0.0f);
-	material.spec_col = dxh::float4(1.0f, 1.0f, 1.0f, 0.0f);
-	material.spec_factor = 32.0f;
+	m_material.ambi_col = dxh::float4(0.2f, 0.2f, 0.2f, 0.0f);
+	m_material.diff_col = dxh::float4(0.6f, 0.6f, 0.6f, 0.0f);
+	m_material.spec_col = dxh::float4(1.0f, 1.0f, 1.0f, 0.0f);
+	m_material.spec_factor = 32.0f;
 }
 
 //generates a default texture to an image data structure
@@ -618,75 +795,73 @@ void DXHandler::GenerateTexture(dxh::ImageData& id)
 void DXHandler::Rotate(float dt) //Rotates world matrix at a rate of 2pi(rad)/rot_time(sec)
 {
 	// one whole lap in radians, time in seconds for a full rotation
-	float rot_time_div = 1.f / rotation_time; //division is expensive so we do this once. separate variables
-	
-	dx::XMMATRIX rotation	= dx::XMMatrixTranspose(dx::XMMatrixRotationY(dt * (rotation_angle * rot_time_div))); 
-	dx::XMMATRIX translate	= dx::XMMatrixTranspose(dx::XMMatrixTranslation(0, 0, -0.5f));
-	dx::XMMATRIX inverse	= dx::XMMatrixTranspose(dx::XMMatrixTranslation(0, 0, 0.5f)); //needed to not have fucky normals
-	dx::XMMATRIX world = dx::XMLoadFloat4x4(&wvp.world);
-
-	world = world * (inverse * rotation * translate); //right to left
-
-	dx::XMStoreFloat4x4(&wvp.world, world);
+	float rot_time_div = 1.f / m_rotation_time; //division is expensive so we do this once. separate variables
 }
 
-void DXHandler::SetAll() // set every frame
+void DXHandler::SetAllStates() // set every frame
 {
 	const UINT32 pStride = sizeof(dxh::Vertex);
 	const UINT32 offset = 0;
 	//Interface
-	devicecontext->OMSetRenderTargets(1, &bbRenderTargetView, depthStencilView);
-	devicecontext->OMSetDepthStencilState(depthStencilState, 0);
-	devicecontext->RSSetState(rasterizerState);
+	context->OMSetRenderTargets(1, &bbRenderTargetView, depthStencilView);
+	context->OMSetDepthStencilState(depthStencilState, 0);
+	context->RSSetState(rasterizerState);
 	//Vertex Shader
-	devicecontext->VSSetShader(vertexShader, nullptr, 0);
-	devicecontext->VSSetConstantBuffers(0, 1, &bMatrix);
-	devicecontext->IASetInputLayout(inputLayout);
-	devicecontext->IASetVertexBuffers(0, 1, &bVertex, &pStride, &offset);
-	devicecontext->IASetIndexBuffer(bIndex, DXGI_FORMAT_R32_UINT, 0);
+	context->VSSetShader(vertexShader, nullptr, 0);
+	context->VSSetConstantBuffers(0, 1, &bMatrix);
+	context->IASetInputLayout(inputLayout);
+	context->IASetVertexBuffers(0, 1, &bVertex, &pStride, &offset);
+	context->IASetIndexBuffer(bIndex, DXGI_FORMAT_R32_UINT, 0);
 	// Pixel shader
-	devicecontext->PSSetShader(pixelShader, nullptr, 0);
-	devicecontext->PSSetConstantBuffers(0, 1, &bLight);
-	devicecontext->PSSetConstantBuffers(1, 1, &bMaterial);
+	context->PSSetShader(pixelShader, nullptr, 0);
+	context->PSSetConstantBuffers(0, 1, &bLight);
+	context->PSSetConstantBuffers(1, 1, &bMaterial);
 	//Texture
-	devicecontext->PSSetShaderResources(0, 1, &textureView);
-	devicecontext->PSSetSamplers(0, 1, &samplerState);
+	auto& texture = textureViews[m_texture_index_map.at(m_active_texture)];
+	context->PSSetShaderResources(0, 1, &textureViews[m_texture_index_map.at(m_active_texture)]);
+	context->PSSetSamplers(0, 1, &samplerState);
+	
+	SetStateUpdateFlag(false);
 }
 
 void DXHandler::MapBuffer(ID3D11Buffer*& gBuffer, const void* src, size_t size)
 {
 	D3D11_MAPPED_SUBRESOURCE msrc;
 	ZeroMemory(&msrc, sizeof(msrc));
-	devicecontext->Map(gBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &msrc);
+	context->Map(gBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &msrc);
 	memcpy(msrc.pData, src, size);
-	devicecontext->Unmap(gBuffer, 0);
+	context->Unmap(gBuffer, 0);
 }
 
 //main render loop
 void DXHandler::Render(float dt)
 {
-	const FLOAT clearColor[] = { 0.1f, 0.f, 0.3f, 1.0f };
-	devicecontext->ClearRenderTargetView(bbRenderTargetView, clearColor);
-	devicecontext->ClearDepthStencilView(depthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
+	context->ClearRenderTargetView(bbRenderTargetView, m_clearColor);
+	context->ClearDepthStencilView(depthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 
-	//Set everything
-	SetAll();
-
-	// Update buffers
-	Rotate(dt);
-
-	// Map buffer data
-	MapBuffer(bVertex, mesh.vertices.data(), mesh.ByteWidth());
-	MapBuffer(bMatrix, &wvp, sizeof(wvp));
-	MapBuffer(bLight, &light, sizeof(light));
-	MapBuffer(bMaterial, &material, sizeof(material));
-
-	//Draw vertices
-	devicecontext->DrawIndexed(static_cast<UINT>(mesh.indices.size()), 0, 0);
-
-	/*
+	// Update buffers 
+	Update(dt);
 	
-	*/
+	
+	//Set all the states if something was changed
+	if(m_state_needs_update)
+		SetAllStates();
+	
+	// remap buffer object if one has been changed
+	if (m_buffer_objects_need_update)
+	{
+		MapBuffer(bVertex, m_mesh.vertices.data(), m_mesh.ByteWidth());
+		MapBuffer(bLight, &m_light, sizeof(m_light));
+		MapBuffer(bMaterial, &m_material, sizeof(m_material));
+		SetBufferUpdateFlag(false); 
+	}
 
-	swapchain->Present(0, 0);
+	// buffer expected to change every frame, no need for if statement
+	MapBuffer(bMatrix, &m_wvp, sizeof(m_wvp));
+
+
+	// Make draw call, once per vertex
+	context->DrawIndexed(static_cast<UINT>(m_mesh.indices.size()), 0, 0);
+
+	swapchain->Present(1, 0);
 }
