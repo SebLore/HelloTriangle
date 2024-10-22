@@ -18,16 +18,21 @@ public:
 	DXHandler() = default;
 	DXHandler(HWND handle);
 	~DXHandler();
-
 	void Initialize(HWND handle);
 	void Render();
 	void Update(float deltatime);
-	void SetViewport(FLOAT width, FLOAT height, FLOAT topleftx, FLOAT toplefty, FLOAT maxdepth, FLOAT mindepth);
-	void SetTopology(D3D11_PRIMITIVE_TOPOLOGY topology)const;
 	bool AddTexture(const std::string& filepath);
+	void ChangeTexture(const std::string& texture_name);
 	HRESULT Present()const;
 	ID3D11Device* GetDevice()const { return device; }
 	ID3D11DeviceContext* GetContext()const { return context; };
+	std::vector<const char*> GetTexturesList() const; //gets a list of the name of the textures in use.
+
+	void RenderImGUI(); // TODO: Implement
+
+	// Not relevant to IMGUI test
+	void SetViewport(FLOAT width, FLOAT height, FLOAT topleftx, FLOAT toplefty, FLOAT maxdepth, FLOAT mindepth);
+	void SetTopology(D3D11_PRIMITIVE_TOPOLOGY topology)const;
 private:
 	// Initial state Setup
 	bool SetupDirectX(HWND handle, RECT& rc);
@@ -55,7 +60,6 @@ private:
 
 	// Texture
 	bool LoadImageToTexture(dxh::ImageData& target, const std::string &filepath); 
-	void ChangeTexture(const std::string& filename);
 	bool CreateTextureSRV(ID3D11ShaderResourceView*& shaderresourceview,const std::string &filepath); //filepath should be the file name
 	bool CreateSamplerState(ID3D11SamplerState*& samplerstate);
 	// Buffers
@@ -104,18 +108,17 @@ private:
 	dxh::SimpleLight m_light;
 	dxh::SimpleMaterial m_material;
 	dxh::Mesh m_mesh;
-	// 
-	FLOAT m_clearColor[4] = {0.5, 0.5, 0.5, 1.0f};
-
 	// flags
 	bool m_state_needs_update = true;
 	bool m_buffer_objects_need_update = true;
 
+
 	// IMGUI TEST VARIABLES
-	bool m_is_rotating = true; // toggles rotation of the quad
-	float m_rotation_time = 6.0f; // time for a single rotation in seconds
-	float m_rotation_angle = RAD; // angle to be rotated after rotation_time has elapsed | Rotation per frame is: deltaTime * (angle/time) 
-	float m_rotation = 0.0f; // the current rotation angle in radians, where 0 makes the quad face the screen.
+	FLOAT m_clearColor[4] = {0.5, 0.5, 0.5, 1.0f};
+	bool m_is_rotating = true;	    // toggles rotation of the quad
+	float m_rotation_time = 6.0f;	// time for a single rotation in seconds
+	float m_rotation_angle = RAD;	// angle to be rotated after rotation_time has elapsed | Rotation per frame is: deltaTime * (angle/time) 
+	float m_rotation = 0.0f;		// the current rotation angle in radians, where 0 makes the quad face the screen.
 	std::string m_active_texture = "sampletexture.png"; // name of texture in use
 	std::unordered_map<std::string, size_t> m_texture_index_map; // stores indices of loaded textures
 };

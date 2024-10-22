@@ -527,7 +527,7 @@ bool DXHandler::AddTexture(const std::string& filepath)
 void DXHandler::ChangeTexture(const std::string& filepath)
 {
 	// attempts to add the texture if it doesn't exist
-	AddTexture(filepath); //
+	AddTexture(filepath);
 
 	auto it = m_texture_index_map.find(filepath);
 	if (it == m_texture_index_map.end())
@@ -541,32 +541,32 @@ void DXHandler::ChangeTexture(const std::string& filepath)
 
 void DXHandler::Update(float deltatime)
 {
-	static float accumulated_time = 0;
-	static bool tex_changed = false;
-	
-	accumulated_time += deltatime;
-	// change texture when half the rotation has finished. By default the quad is facing away then.
-	if (accumulated_time >= m_rotation_time*0.5 && tex_changed == false)
-	{
-		for (const auto& it : m_texture_index_map)
-		{
-			if (it.first != m_active_texture)
-			{
-				m_active_texture = it.first;
-				break;
-			}
-		}
-		ChangeTexture(m_active_texture);
-		tex_changed = true;
-	}
+	//static float accumulated_time = 0;
+	//static bool tex_changed = false;
+	//
+	//accumulated_time += deltatime;
+	//// change texture when half the rotation has finished. By default the quad is facing away then.
+	//if (accumulated_time >= m_rotation_time*0.5 && tex_changed == false)
+	//{
+	//	for (const auto& it : m_texture_index_map)
+	//	{
+	//		if (it.first != m_active_texture)
+	//		{
+	//			m_active_texture = it.first;
+	//			break;
+	//		}
+	//	}
+	//	ChangeTexture(m_active_texture);
+	//	tex_changed = true;
+	//}
 
-	// Flip the rotation direction after a set amount of time.
-	if (accumulated_time >= m_rotation_time && m_is_rotating)
-	{
-		FlipRotateDirection();
-		accumulated_time = 0;
-		tex_changed = false;
-	}
+	//// Flip the rotation direction after a set amount of time.
+	//if (accumulated_time >= m_rotation_time && m_is_rotating)
+	//{
+	//	FlipRotateDirection();
+	//	accumulated_time = 0;
+	//	tex_changed = false;
+	//}
 
 	if (m_is_rotating)
 	{
@@ -864,4 +864,16 @@ void DXHandler::Render()
 HRESULT DXHandler::Present()const
 {
 	return swapchain->Present(1, 0);
+}
+
+std::vector<const char*> DXHandler::GetTexturesList() const
+{
+	std::vector<const char*> keys;
+	keys.reserve(m_texture_index_map.size()); // Reserve space for efficiency
+
+	for (const auto& pair : m_texture_index_map) {
+		keys.push_back(pair.first.c_str()); // Add the key (c_str converts std::string to const char*)
+	}
+
+	return keys;
 }
