@@ -26,6 +26,8 @@ public:
 	void SetTopology(D3D11_PRIMITIVE_TOPOLOGY topology)const;
 	bool AddTexture(const std::string& filepath);
 	HRESULT Present()const;
+	ID3D11Device* GetDevice()const { return device; }
+	ID3D11DeviceContext* GetContext()const { return context; };
 private:
 	// Initial state Setup
 	bool SetupDirectX(HWND handle, RECT& rc);

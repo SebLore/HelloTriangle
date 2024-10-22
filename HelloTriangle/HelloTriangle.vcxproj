@@ -322,7 +322,6 @@
     <ClInclude Include="pch.h" />
     <ClInclude Include="external\stb_image.h" />
     <ClInclude Include="utility\Utilities.h" />
-    <ClInclude Include="window.h" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="hlsl\PixelShader.hlsl">

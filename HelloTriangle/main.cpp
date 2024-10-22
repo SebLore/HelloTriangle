@@ -6,10 +6,15 @@
 
 
 #include "dxh.h"
-#include "window.h"
+#include "imgui_impl_dx11.h"
+#include "imgui_impl_win32.h"
 // ********************************************************************************
 // IGNORE THIS, IT IS NOT RELEVANT TO THE TEST!
 // ********************************************************************************
+
+HWND SetupWindow(int width, int height, int x, int y, HINSTANCE hInstance);
+LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+
 
 void InitializeD3D11(DXHandler& handler, HWND handle)
 {
