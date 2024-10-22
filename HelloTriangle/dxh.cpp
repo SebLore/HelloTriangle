@@ -863,5 +863,9 @@ void DXHandler::Render(float dt)
 	// Make draw call, once per vertex
 	context->DrawIndexed(static_cast<UINT>(m_mesh.indices.size()), 0, 0);
 
+}
+
+void DXHandler::Present()
+{
 	swapchain->Present(1, 0);
 }
