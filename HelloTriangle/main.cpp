@@ -22,7 +22,7 @@ void InitializeD3D11(DXHandler& handler, HWND handle)
 
 int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ PWSTR pCmdLine, _In_ int nCmdShow)
 {
-    static HWND handle = SetupWindow(800, 600, 560, 200, hInstance);
+    static HWND handle = SetupWindow(1200, 800, 100, 50, hInstance);
     static DXHandler dxh;
     InitializeD3D11(dxh, handle);
     util::DeltaTimer deltaTime;
