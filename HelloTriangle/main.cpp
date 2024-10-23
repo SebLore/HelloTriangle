@@ -1,70 +1,17 @@
 // Sebastian Lorensson 2022-11-27
+// HELLO TRIANGLE MAIN
 #include "pch.h"
-
-#define SAMPLE_TEXTURE1 "sampletexture.png"
-#define SAMPLE_TEXTURE2 "sampletexture2.png"
-
 
 #include "dxh.h"
 #include "imgui_impl_dx11.h"
 #include "imgui_impl_win32.h"
-// ********************************************************************************
-// IGNORE THIS, IT IS NOT RELEVANT TO THE TEST!
-// ********************************************************************************
 
-HWND SetupWindow(int width, int height, int x, int y, HINSTANCE hInstance);
+
+// Forward declaration
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
-
-void InitializeD3D11(DXHandler& handler, HWND handle)
-{
-    handler.Initialize(handle);
-	handler.AddTexture(SAMPLE_TEXTURE1);
-	handler.AddTexture(SAMPLE_TEXTURE2);
-}
-
-// ********************************************************************************
-
-int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ PWSTR pCmdLine, _In_ int nCmdShow)
-{
-    static HWND handle = SetupWindow(1200, 800, 100, 50, hInstance);
-    static DXHandler dxh;
-    InitializeD3D11(dxh, handle);
-    util::DeltaTimer deltaTime;
-    ShowWindow(handle, nCmdShow);
-
-
-    bool running = true;
-    // Main render loop
-    while (running)
-    {
-        MSG msg{};
-        while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
-        {
-            TranslateMessage(&msg);
-            DispatchMessage(&msg);
-            if (msg.message == WM_QUIT)
-                running = false;
-        }
-        if (!running)
-            break;
-
-        // any changes to the handler or mesh are applied here
-        dxh.Update(deltaTime.Delta());
-        
-        // Render the scene
-        dxh.Render();
-
-        // Finally present the rendered scene
-        dxh.Present();
-    }
- 
-    return EXIT_SUCCESS;
-}
-
-
-// WINDOW STUFF
-HWND SetupWindow(int width, int height, int x, int y, HINSTANCE hInstance)
+// creates window and return a handle
+HWND SetupWindow(int width, int height, int x, int y, HINSTANCE hInstance) 
 {
 	TCHAR szWindowClass[] = _T("Hello Triangle");
 	TCHAR szTitle[] = _T("Hello Triangle");
@@ -109,11 +56,72 @@ HWND SetupWindow(int width, int height, int x, int y, HINSTANCE hInstance)
 		exit(-1);
 	}
 	return hWnd;
+
+}
+
+// texture names
+#define SAMPLE_TEXTURE1 "sampletexture.png"
+#define SAMPLE_TEXTURE2 "sampletexture2.png"
+
+void InitializeD3D11(DXHandler& handler, HWND handle)
+{
+    handler.Initialize(handle);
+	handler.AddTexture(SAMPLE_TEXTURE1);
+	handler.AddTexture(SAMPLE_TEXTURE2);
+}
+
+// ********************************************************************************
+// MAIN
+// ********************************************************************************
+int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ PWSTR pCmdLine, _In_ int nCmdShow)
+{
+	// Initialization ======================================================
+    static HWND handle = SetupWindow(800, 600, 100, 50, hInstance);
+    static DXHandler dxh;
+    InitializeD3D11(dxh, handle);
+    util::DeltaTimer deltaTime;
+    ShowWindow(handle, nCmdShow);
+	// =====================================================================
+
+
+
+	// Main render loop ====================================================
+    bool running = true; 
+
+    while (running)
+    {
+        MSG msg{};
+        while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
+        {
+            TranslateMessage(&msg);
+            DispatchMessage(&msg);
+            if (msg.message == WM_QUIT)
+                running = false;
+        }
+        if (!running) // exit the loop if the window has been closed
+            break;
+
+        // any changes to the handler or mesh are applied inside this function
+        dxh.Update(deltaTime.Delta());
+        
+        // Render the scene and anything else
+        dxh.Render();
+
+        // Finally present the rendered scene
+        dxh.Present();
+    }
+	//=========================================================================
+	
+	// App exit
+    return EXIT_SUCCESS;
 }
 
 
+// This handles window events
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
+	// insert external window procs here
+
 	switch (uMsg)
 	{
 	case WM_DESTROY:
